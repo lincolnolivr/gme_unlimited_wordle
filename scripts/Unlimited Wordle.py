@@ -1,8 +1,9 @@
 # %%
-__version__ = '1.0.0'
+__version__ = '2.0.0'
 
 # %%
 import os
+import re
 import time
 import random
 import chardet
@@ -12,7 +13,23 @@ from icecream import ic
 from colorama import Fore, Back, Style
 
 # %%
-chances = 3
+def find_all(substring: str, list: list[str]):
+    return [letter.start() for letter in re.finditer(substring, list)]
+
+def almost_letter(letter):
+    print(f'{Back.YELLOW}{Fore.BLACK}{letter}', end=f'')
+    print(f'{Style.RESET_ALL}', end=' ')
+
+def wrong_letter(letter):
+    print(f'{letter}', end=f'')
+    print(f'{Style.RESET_ALL}', end=' ')
+
+def correct_letter(letter):
+    print(f'{Back.GREEN}{letter}', end=f'')
+    print(f'{Style.RESET_ALL}', end=' ')
+
+# %%
+chances = 6
 word_size = [4, 5, 6, 7, 8]
 dictonary_path = 'data/raw'
 english_path = os.path.join(os.getcwd(), '..', dictonary_path, 'english')
@@ -31,7 +48,16 @@ for file in os.listdir(english_path):
     dictonary = pd.concat([df, dictonary])
 
 # %%
-word_list = [str(word).strip() for word in dictonary.Word.unique()]
+only_words = re.compile(r'^[a-zA-Z]+')
+
+word_list = []
+
+for word in dictonary.Word.unique():
+    if re.match(only_words, str(word)):
+       word_list.append(re.findall(only_words, str(word))[0])
+
+word_list = list(set(word_list))
+
 size_choice = int(easygui.choicebox('Escolha a quantidade de letras para jogar', 'Escolha o modo de jogo', word_size))
 word_list_filtered = [word.upper() for word in word_list if len(word)==int(size_choice)]
 alphabet = [
@@ -57,28 +83,32 @@ while True:
     print()
     input_word = str(input('Escolha uma palavra: ')).upper()
 
-    for letter in input_word:
-        if letter not in alphabet:
-            print('Caractere inválido, tente de novo')
-            break
-    else:
-        pass
+    invalid_caracter = [letter for letter in input_word if letter not in alphabet]
+
+    if len(invalid_caracter) > 0:
+        print('Caractere inválido, tente de novo')
+        continue
 
     if input_word in used_words:
         print(f'\nPalavra já utilizada, insira outra palavra.')
         continue
 
-    if input_word not in word_list_filtered:
-        print(f'\nPalavra não válida, tente de novo')
-        continue
-    
     elif len(input_word) != size_choice:
         print('\nTamanho de palavra incorreto, tente de novo')
+        continue
+
+    elif input_word not in word_list_filtered:
+        print(f'\nPalavra não válida, tente de novo')
         continue
         
     elif input_word == selected_word:
         print(f'\nParabéns, você ganhou!! A palavra é: {selected_word}')
         continue_game = input('\nDeseja continuar? Digite (Y/N)...')
+
+        while continue_game.upper() != 'Y' and continue_game.upper() != 'N':
+            print('\nOpção inválida, tente de novo')
+            continue_game = input('\nDeseja continuar? Digite (Y/N)...')
+
         if continue_game.upper() == 'Y':
             selected_word = random.choice(word_list_filtered)
             used_words = []
@@ -89,15 +119,18 @@ while True:
             print(f'\nChances Restantes: {current_chances}')
             print(' '.join(answer))
             continue
-
         else:
             print('\nObrigado por jogar, até a próxima!')
-            os.system('pause')
         break
 
     elif current_chances == 1:
         print(f'\nPoxa, você perdeu. A palavra correta era: {selected_word}')
         continue_game = input('\nDeseja continuar? Digite (Y/N)...')
+
+        while continue_game.upper() != 'Y' and continue_game.upper() != 'N':
+            print('\nOpção inválida, tente de novo')
+            continue_game = input('\nDeseja continuar? Digite (Y/N)...')
+
         if continue_game.upper() == 'Y':
             selected_word = random.choice(word_list_filtered)
             used_words = []
@@ -110,7 +143,6 @@ while True:
             continue
         else:
             print('\nObrigado por jogar, até a próxima!')
-            os.system('pause')
         break
     
     else:
@@ -127,20 +159,35 @@ while True:
                 letters_in_word.sort()
 
         print(f'\nChances Restantes: {current_chances}')
-        print(f'Palavras Já Utilizadas: {used_words}')
         print(f'Letras já utilizadas palavra: {used_letters}')
-        print(f'Letras na palavra: {letters_in_word}')
         print()
 
-        for i in range(size_choice):
-            if input_word[i] == selected_word[i]:
-                answer = ''.join(answer[:i]) + input_word[i] + ''.join(answer[i+1:])
-            if input_word[i] in selected_word:
-                print(f'A letra {input_word[i]} está na palavra')
-            if input_word[i] not in selected_word:
-                print(f'A letra {input_word[i]} não está na palavra')
+        for index, letter in enumerate(input_word):
+            if input_word[index] == selected_word[index]:
+                correct_letter(letter)
+
+            elif input_word[index] in selected_word:
+                guess_occurences = find_all(input_word[index], input_word)
+                word_occurences = find_all(input_word[index], selected_word)
+                quantity_in_input_word = input_word.count(input_word[index])
+                quantity_in_selected_word = selected_word.count(input_word[index])
+                corrects = [i for i in word_occurences if i in guess_occurences]
+                wrongs = [i for i in guess_occurences if i not in word_occurences]
+
+                if quantity_in_selected_word >= quantity_in_input_word:
+                    almost_letter(letter)
+                elif quantity_in_input_word ==1:
+                    almost_letter(letter)
+                elif index == guess_occurences[0] and (quantity_in_selected_word !=1 or len(corrects)==0):
+                    almost_letter(letter)
+                elif index in wrongs[:(len(wrongs) - len(corrects))] and quantity_in_input_word < quantity_in_selected_word:
+                    almost_letter(letter)
+                else:
+                    wrong_letter(letter)
+
+            elif letter not in selected_word:
+                wrong_letter(letter)
             
         print('\n' + ' '.join(answer))
-
 
 
