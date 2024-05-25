@@ -1,15 +1,13 @@
 # %%
-__version__ = '2.0.0'
+__version__ = '2.1.2'
 
 # %%
 import os
+import csv
 import re
-import time
 import random
 import chardet
-import easygui
 import pandas as pd
-from icecream import ic
 from colorama import Fore, Back, Style
 
 # %%
@@ -31,34 +29,20 @@ def correct_letter(letter):
 # %%
 chances = 6
 word_size = [4, 5, 6, 7, 8]
-dictonary_path = 'data/raw'
-english_path = os.path.join(os.getcwd(), '..', dictonary_path, 'english')
-
-# %%
-dictonary = pd.DataFrame()
-
-print('Carregando palavras...')
-for file in os.listdir(english_path): 
-    path = os.path.join(english_path, file)
-    with open(path, 'rb') as f:
-        result = chardet.detect(f.read())
-        encoding = result['encoding']  
+dictonary_path = os.path.join(os.getcwd(), '..', 'data/processed/english.csv')
+with open(dictonary_path) as dictonary:
+    reader = csv.reader(dictonary, delimiter=',', quotechar='\'')
+    word_list = [row[0] for row in reader]
     
-    df = pd.read_csv(path, on_bad_lines='skip', encoding=encoding ,engine='python', names=['Word'])
-    dictonary = pd.concat([df, dictonary])
+size_choice = int(input(f'Escolha a quantidade de letras para jogar (digite um número de {min(word_size)} a {max(word_size)}): '))
 
-# %%
-only_words = re.compile(r'^[a-zA-Z]+')
+while size_choice not in word_size:
+    print(f'\nTamanho inválido, por favor escolha um número entre {min(word_size)} e {max(word_size)}')
+    size_choice = int(input(f'\nEscolha a quantidade de letras para jogar (digite um número de {min(word_size)} a {max(word_size)}): '))
+     
+if size_choice >= 5:
+    chances += int(size_choice - 5)
 
-word_list = []
-
-for word in dictonary.Word.unique():
-    if re.match(only_words, str(word)):
-       word_list.append(re.findall(only_words, str(word))[0])
-
-word_list = list(set(word_list))
-
-size_choice = int(easygui.choicebox('Escolha a quantidade de letras para jogar', 'Escolha o modo de jogo', word_size))
 word_list_filtered = [word.upper() for word in word_list if len(word)==int(size_choice)]
 alphabet = [
     'A', 'B', 'C', 'D', 'E', 'F', 
